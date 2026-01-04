@@ -1869,6 +1869,24 @@
                 addLog(`\n⏸️ 暂停完成！已生成 ${results.length} 条文案`);
             } else {
                 addLog('\n✅ 全部完成！文件已下载。');
+                const downloadBtn = document.createElement('button');
+downloadBtn.textContent = '📥 重新下载结果';
+downloadBtn.style.cssText = `
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 15px;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+`;
+downloadBtn.onclick = () => downloadExcel(results);
+
+const logDiv = document.getElementById('log');
+logDiv.appendChild(downloadBtn);
             }
         }
         
