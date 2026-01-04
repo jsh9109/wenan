@@ -388,9 +388,12 @@
 <body>
     <div class="container">
         <div class="header">
-            <button class="admin-btn" onclick="showAdminModal()">🔧 管理员</button>
+            <button class="admin-btn" onclick="window.location.href='index.html'" style="left: 20px; right: auto;">
+                ← 返回主页
+            </button>
             <h1>🎨 小红书文案生成器</h1>
             <p>网页版 v2.0 - 专业、高效、易用</p>
+            <button class="admin-btn" onclick="showAdminModal()">⚙️ 管理</button>
         </div>
         
         <div class="content">
@@ -529,6 +532,10 @@
             <!-- 用户端：生成区 -->
             <div class="section hidden" id="generateSection">
                 <div class="section-title">📝 批量生成</div>
+                
+                <button id="restoreBtn" class="btn" style="display: none; background: #ff9800; margin-bottom: 15px; width: 100%;" onclick="restoreLastResults()">
+                    🔄 恢复上次生成的结果
+                </button>
                 
                 <div class="info-box">
                     <p>
@@ -1994,6 +2001,52 @@ logDiv.appendChild(downloadBtn);
             log.scrollTop = log.scrollHeight;
         }
         
+        // ========== 恢复上次生成的结果 ==========
+        function restoreLastResults() {
+            const savedResults = localStorage.getItem('lastGeneratedResults');
+            const savedTime = localStorage.getItem('lastGeneratedTime');
+            
+            if (savedResults) {
+                try {
+                    const results = JSON.parse(savedResults);
+                    
+                    const logDiv = document.getElementById('log');
+                    logDiv.innerHTML = '';
+                    addLog(`🔄 恢复了上次生成的结果（${savedTime}）`);
+                    addLog(`📊 共 ${results.length} 条文案`);
+                    
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.textContent = '📥 下载恢复的结果';
+                    downloadBtn.style.cssText = `
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        margin: 15px 0;
+                        font-weight: bold;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                        display: block;
+                        width: 100%;
+                    `;
+                    downloadBtn.onclick = () => {
+                        downloadExcel(results);
+                        addLog('✅ 文件已下载！');
+                    };
+                    
+                    logDiv.appendChild(downloadBtn);
+                    document.getElementById('progressContainer').classList.remove('hidden');
+                    
+                } catch (e) {
+                    alert('恢复失败：数据已损坏');
+                }
+            } else {
+                alert('没有找到上次的生成结果');
+            }
+        }
+        
         // ========== 页面加载初始化 ==========
         window.onload = function() {
             const activation = localStorage.getItem('activation');
@@ -2010,6 +2063,18 @@ logDiv.appendChild(downloadBtn);
                 if (apiKey) {
                     document.getElementById('apiKey').value = apiKey;
                     document.getElementById('generateSection').classList.remove('hidden');
+                }
+            }
+            
+            // ✨ 检查是否有保存的结果
+            const savedResults = localStorage.getItem('lastGeneratedResults');
+            const savedTime = localStorage.getItem('lastGeneratedTime');
+            
+            if (savedResults) {
+                const restoreBtn = document.getElementById('restoreBtn');
+                if (restoreBtn) {
+                    restoreBtn.style.display = 'block';
+                    restoreBtn.textContent = `🔄 恢复上次结果（${savedTime}）`;
                 }
             }
             
