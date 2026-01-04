@@ -1866,7 +1866,8 @@
             
             // 下载结果
             downloadExcel(results);
-            
+localStorage.setItem('lastGeneratedResults', JSON.stringify(results));
+localStorage.setItem('lastGeneratedTime', new Date().toLocaleString('zh-CN'));
             isGenerating = false;
             document.getElementById('generateBtn').disabled = false;
             document.getElementById('pauseBtn').style.display = 'none';
