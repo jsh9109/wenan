@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小红书文案生成器 - v6.2 社会化专用版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        /* UI 保持高端版 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; position: relative; }
+        .header h1 { font-size: 28px; margin-bottom: 10px; }
+        .header p { opacity: 0.9; font-size: 14px; }
+        .admin-btn { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.5); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.3s; }
+        .admin-btn:hover { background: rgba(255,255,255,0.3); }
+        .content { padding: 30px; }
+        .section { background: #f8f9fa; border-radius: 12px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #667eea; }
+        .section-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; display: flex; align-items: center; }
+        .info-box { background: white; border-left: 4px solid #ff9800; padding: 15px; margin-bottom: 15px; border-radius: 4px; font-size: 13px; color: #666; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; color: #555; font-weight: 500; font-size: 14px; }
+        input[type="text"], input[type="password"], input[type="date"], input[type="file"], select { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: border-color 0.3s; }
+        input:focus { outline: none; border-color: #667eea; }
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; transition: all 0.3s; margin-right: 10px; margin-bottom: 10px; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .status { padding: 15px; border-radius: 8px; margin-top: 15px; font-size: 14px; }
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .hidden { display: none !important; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.show { display: flex; }
+        .modal-content { background: white; border-radius: 12px; padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+        .code-display { background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
+        .progress-container { margin-top: 20px; }
+        .progress-bar { width: 100%; height: 30px; background: #e0e0e0; border-radius: 15px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; }
+        .log { margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.8; }
+        .log-item { margin-bottom: 5px; padding: 5px; border-left: 3px solid #667eea; padding-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button class="admin-btn" onclick="window.location.reload()" style="left: 20px; right: auto;">🔄 刷新</button>
+            <h1>🎨 小红书文案生成器</h1>
+            <p>v6.2 社会化专用版 - 找回分配功能 | 强制成人</p>
+            <button class="admin-btn" onclick="showAdminModal()">⚙️ 管理</button>
+        </div>
+        
+        <div class="content">
+            <div class="section" id="activationSection">
+                <div class="section-title">🔑 软件激活</div>
+                <div class="form-group">
+                    <label>请输入激活码</label>
+                    <input type="text" id="activationCode" placeholder="XHS-ALL-xxxx-xxxx">
+                </div>
+                <button class="btn btn-primary" onclick="activate()">激活软件</button>
+                <div class="status hidden" id="activationStatus"></div>
+            </div>
+            
+            <div class="section hidden" id="activatedInfo">
+                <div class="section-title">✅ 已激活</div>
+                <p>业务线: <span id="businessInfo"></span></p>
+                <p>到期时间: <span id="expireInfo"></span></p>
+                <button class="btn btn-secondary" onclick="resetActivation()">退出登录</button>
+            </div>
+
+            <div class="section hidden" id="apiConfigSection">
+                <div class="section-title">🔌 API 配置 (Claude 3.5)</div>
+                <div class="info-box">
+                    <p>⚠️ 需用户自备 Key。本版本专门针对“社会化指南”优化，严禁生成低幼内容。</p>
+                </div>
+                <div class="form-group">
+                    <label>API Key (以 sk- 开头)</label>
+                    <input type="password" id="userApiKey" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx">
+                </div>
+                <button class="btn btn-primary" onclick="saveUserApiKey()">💾 保存 Key</button>
+                <div class="status hidden" id="apiStatus"></div>
+            </div>
+            
+            <div class="section hidden" id="assignSection">
+                <div class="section-title">🔍 步骤1：智能分配选题</div>
+                <div class="info-box">下载空白模板 -> 填入标题 -> 上传分配 -> 得到用于生成的Excel</div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="downloadBlankTemplate()">📥 下载空白模板</button>
+                    <button class="btn btn-success" onclick="document.getElementById('assignFile').click()">📤 上传并分配</button>
+                </div>
+                <input type="file" id="assignFile" accept=".xlsx,.xls" style="display:none" onchange="handleAssignFile()">
+                <div class="status hidden" id="assignFileInfo"></div>
+            </div>
+            
+            <div class="section hidden" id="generateSection">
+                <div class="section-title">📝 步骤2：AI 批量生成</div>
+                
+                <div class="form-group" style="background: #e7f3ff; padding: 15px; border-radius: 8px; border: 1px solid #b3d9ff;">
+                    <label style="color: #0066cc;">🎯 篇幅选择</label>
+                    <select id="contentLength">
+                        <option value="standard">🔵 标准版 (500-600字 | 完读率高)</option>
+                        <option value="long">🟣 深度版 (850-950字 | 收藏率高)</option>
+                    </select>
+                    <div class="info-box" style="margin-top: 10px; background: #fff3cd; border-left-color: #ffc107; color: #856404;">
+                        ⚠️ <b>强制成人模式：</b> 系统会强制将“宝宝”理解为成年读者，标题含“教孩子”会理解为“重养自己一遍”。
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>上传【步骤1】生成的分配结果</label>
+                    <input type="file" id="excelFile" accept=".xlsx,.xls" onchange="handleFileSelect()">
+                    <div class="status hidden" id="fileInfo"></div>
+                </div>
+                
+                <button class="btn btn-primary" id="generateBtn" onclick="startGeneration()" disabled>🚀 开始生成 (消耗Key)</button>
+                <button class="btn" style="background: #ff9800; color: white; display: none;" onclick="pauseGeneration()" id="pauseBtn">⏸️ 暂停</button>
+                
+                <div class="progress-container hidden" id="progressContainer">
+                    <div class="progress-bar"><div class="progress-fill" id="progressFill">0%</div></div>
+                    <div class="log" id="log"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="adminModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔧 管理员面板</h3>
+                <button class="close-btn" onclick="closeAdminModal()">×</button>
+            </div>
+            <div id="adminLogin">
+                <div class="form-group">
+                    <input type="password" id="adminPassword" placeholder="输入管理员密码">
+                </div>
+                <button class="btn btn-primary" onclick="adminLogin()">登录</button>
+            </div>
+            <div id="adminPanel" class="hidden">
+                <div class="form-group">
+                    <label>业务线</label>
+                    <select id="businessType"><option value="all">全功能版</option></select>
+                </div>
+                <div class="form-group">
+                    <label>到期日期</label>
+                    <input type="date" id="expireDate">
+                </div>
+                <button class="btn btn-success" onclick="generateCode()">生成激活码</button>
+                <div class="code-display hidden" id="codeDisplay">
+                    <div class="code-text" id="generatedCode"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== 核心配置 ==========
+        const CONFIG = {
+            SECRET_KEY: "xiaohongshu_2025_secret_key_change_me",
+            ADMIN_PASSWORD: "admin", 
+            API_BASE_URL: "https://api.gptsapi.net/v1/chat/completions",
+            MODEL: "claude-3-5-sonnet-20240620", 
+            
+            // 敏感词
+            SENSITIVE_WORDS: {
+                '微信': '平时聊天', '加微信': '加好友', '钱': '米', '赚钱': '搞米',
+                '私信': '后台', '技巧': '方法', '帮助': '协助', '沦为': '变成',
+                '职场': '值场', '公司': '公同', '单位': '單位', '同事': '同士', '引流': '导流', '营销': '营消'
+            },
+            
+            // 真实热搜词库
+            KEYWORDS: {
+                'work': ['职场', '职场生存法则', '职场干货', '职场思维', '职场人际关系'],
+                'social': ['社会化', '人情世故', '高情商', '为人处事', '社交技巧'],
+                'growth': ['个人成长', '成长', '自我提升', '思维提升', '认知觉醒']
+            },
+
+            // 完美结尾钩子
+            ENDING: `\n\n💡 这份《普通人社会化指南》能帮你什么？\n\n1️⃣ 全套干货：20万字 + 67节系统课，不讲空话，只教方法。\n2️⃣ 全景覆盖：从饭局应酬到值场晋升，从拒绝内耗到向上社交。\n3️⃣ 实战工具：附赠超全思维导图（电子版），拿来就能用。\n\n👥 这套指南适合谁？\n\n✅ 社恐/内向者：害怕社交，想摆脱紧张尴尬\n✅ 值场老实人：不懂拒绝，总被拿捏，想建立边界\n✅ 沟通小白：说话直来直去，常得罪人，想提高情商\n\n❗️❗️ 需要的宝子，直接去我主页店铺带走 🛒🛒🛒`
+        };
+
+        // ========== API Key 管理 ==========
+        function saveUserApiKey() {
+            const key = document.getElementById('userApiKey').value.trim();
+            if (!key.startsWith('sk-')) return showStatus('apiStatus', '❌ Key 格式错误', 'error');
+            localStorage.setItem('user_api_key', key);
+            showStatus('apiStatus', '✅ Key 已保存', 'success');
+            setTimeout(() => { 
+                document.getElementById('assignSection').classList.remove('hidden');
+                document.getElementById('generateSection').classList.remove('hidden'); 
+            }, 500);
+        }
+
+        // ========== 辅助函数 ==========
+        function randomPickMultiple(array, count) { return array.sort(() => 0.5 - Math.random()).slice(0, count); }
+
+        // ========== 步骤1：分配逻辑 (找回的功能) ==========
+        function downloadBlankTemplate() {
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['标题']]), "空白模板");
+            XLSX.writeFile(wb, '步骤1_空白模板.xlsx');
+        }
+
+        function handleAssignFile() {
+            const f = document.getElementById('assignFile').files[0];
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const wb = XLSX.read(e.target.result, { type: 'array' });
+                const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                
+                // 自动分配逻辑
+                const results = data.map((r, i) => ({
+                    '序号': i+1, 
+                    '标题': r['标题'], 
+                    '选题': '智能识别', // 这里其实API不太需要选题列，但为了格式统一保留
+                    '生成数量': 1 
+                }));
+                
+                const newWb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(newWb, XLSX.utils.json_to_sheet(results), "分配结果");
+                XLSX.writeFile(newWb, `分配结果_${Date.now()}.xlsx`);
+                showStatus('assignFileInfo', '✅ 分配完成，文件已下载', 'success');
+            };
+            reader.readAsArrayBuffer(f);
+        }
+
+        // ========== 核心生成逻辑 (强制成人版) ==========
+        async function generateSocial(row) {
+            const mode = document.getElementById('contentLength').value;
+            
+            // ⚠️ 强制成人的 Prompt
+            const ADULT_CONSTRAINT = `
+【重要设定】
+1. **目标读者**：20-30岁的职场新人、大学生、或有社交困扰的成年人。
+2. **关键词重定义**：标题如果出现"宝宝"，指的是"亲爱的读者(成年人)"，绝对不是婴儿！标题如果出现"孩子"，指的是"像孩子一样迷茫的成年人"或"内心的小孩"。
+3. **严禁场景**：绝对不要写幼儿园、带娃、老师表扬、放学回家等低幼场景！请写职场、聚会、饭局。
+4. **语气风格**：成熟、知性、清醒、有深度的职场/社交导师。`;
+
+            const promptStandard = `你是一位职场社交导师。请为标题《${row['标题']}》写一篇**极简**干货正文（不要结尾）。
+${ADULT_CONSTRAINT}
+【绝对红线】正文必须控制在 **280-320字** 之间！
+【结构】1.开头20字痛点(成人视角)。2.中间3个方法[一R][二R][三R]，每点60字。
+【禁令】禁止英文、敏感词、不要写结尾。`;
+
+            const promptLong = `你是一位深谙人性的心理咨询师。请为标题《${row['标题']}》写一篇深度正文（不要结尾）。
+${ADULT_CONSTRAINT}
+【绝对红线】正文必须控制在 **600-650字** 之间！
+【结构】1.开头60字成人社交故事。2.中间3个建议[一R][二R][三R]，每点150字含心理分析。
+【禁令】禁止英文、敏感词、不要写结尾。`;
+
+            const finalPrompt = (mode === 'long') ? promptLong : promptStandard;
+            const maxTokens = (mode === 'long') ? 1200 : 600;
+
+            const userKey = localStorage.getItem('user_api_key');
+            const response = await fetch(CONFIG.API_BASE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userKey}` },
+                body: JSON.stringify({
+                    model: CONFIG.MODEL,
+                    messages: [{ role: "user", content: finalPrompt }],
+                    temperature: 0.85, max_tokens: maxTokens
+                })
+            });
+            const data = await response.json();
+            const content = data.choices[0].message.content;
+            
+            // 后处理
+            let body = content.replace(/\*\*/g, "").replace(/\b[A-Za-z]{2,}\b/g, ""); // 删英文
+            body = body.replace(/\[1\]/g, "[一R]").replace(/\[2\]/g, "[二R]").replace(/\[3\]/g, "[三R]");
+            body = body.replace(/([^\n])\[([一二三]R)\]/g, "$1\n\n[$2]"); // 强制换行
+            
+            // 清除标题泄露
+            const lines = body.split('\n');
+            if (lines.length > 0) {
+                const firstLine = lines[0].trim();
+                if (firstLine.includes('标题：') || firstLine.includes('小红书标题') || firstLine === row['标题']) {
+                    lines.shift();
+                    if (lines.length > 0 && (lines[0].trim().includes('正文：') || lines[0].trim() === '正文')) lines.shift();
+                    body = lines.join('\n').trim();
+                }
+            }
+
+            // 拼接结尾
+            let full = body + CONFIG.ENDING;
+            // 全域清洗
+            for (const [key, val] of Object.entries(CONFIG.SENSITIVE_WORDS)) {
+                full = full.replace(new RegExp(key, 'g'), val);
+            }
+            
+            // 话题
+            let tags = ['#普通人社会化指南', '#人情世故'];
+            tags.push(...randomPickMultiple(CONFIG.KEYWORDS.work, 3).map(t=>'#'+t));
+            tags.push(...randomPickMultiple(CONFIG.KEYWORDS.social, 3).map(t=>'#'+t));
+            tags.push(...randomPickMultiple(CONFIG.KEYWORDS.growth, 2).map(t=>'#'+t));
+            
+            return { title: row['标题'], body: full, tags: tags.slice(0,10).join(' ') };
+        }
+
+        // ========== 流程控制 ==========
+        let excelData = null;
+        let isPaused = false;
+        let pauseRequested = false;
+
+        function handleFileSelect() {
+            const f = document.getElementById('excelFile').files[0];
+            if(!f) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const wb = XLSX.read(e.target.result, { type: 'array' });
+                excelData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                if (!excelData[0]['标题']) {
+                    showStatus('fileInfo', '❌ 错误：请上传【步骤1】生成的分配结果（需包含标题列）', 'error');
+                } else {
+                    showStatus('fileInfo', `✅ 已加载 ${excelData.length} 条任务`, 'success');
+                    document.getElementById('generateBtn').disabled = false;
+                }
+            };
+            reader.readAsArrayBuffer(f);
+        }
+
+        async function startGeneration() {
+            const userKey = localStorage.getItem('user_api_key');
+            if (!userKey) { alert("请先配置Key"); return; }
+            
+            isPaused = false;
+            pauseRequested = false;
+            document.getElementById('generateBtn').disabled = true;
+            document.getElementById('pauseBtn').style.display = 'inline-block';
+            document.getElementById('progressContainer').classList.remove('hidden');
+            const log = document.getElementById('log'); log.innerHTML = '';
+            
+            const results = [];
+            const total = excelData.length;
+
+            for (let i = 0; i < total; i++) {
+                if (pauseRequested) {
+                    isPaused = true;
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(results), "暂停保存");
+                    XLSX.writeFile(wb, `暂停备份_${Date.now()}.xlsx`);
+                    document.getElementById('pauseBtn').innerText = "▶️ 继续";
+                    return; 
+                }
+
+                const row = excelData[i];
+                if (!row['标题']) continue;
+
+                log.innerHTML += `<div class="log-item">[${i+1}/${total}] 正在生成: ${row['标题']}...</div>`;
+                log.scrollTop = log.scrollHeight;
+
+                try {
+                    let res = await generateSocial(row);
+                    results.push({
+                        '序号': i+1, '原标题': row['标题'],
+                        '生成标题': res.title, '生成文案': res.body, '话题': res.tags, '字数': res.body.length
+                    });
+                    document.getElementById('progressFill').style.width = ((i+1)/total*100) + '%';
+                } catch (e) {
+                    console.error(e);
+                    log.innerHTML += `<div class="log-item" style="color:red">❌ 失败: ${e.message}</div>`;
+                }
+                
+                await new Promise(r => setTimeout(r, 1000));
+            }
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(results), "结果");
+            XLSX.writeFile(wb, `社会化指南文案_${Date.now()}.xlsx`);
+            
+            document.getElementById('generateBtn').disabled = false;
+            document.getElementById('pauseBtn').style.display = 'none';
+            log.innerHTML += `<div class="log-item">🎉 全部完成</div>`;
+        }
+
+        function pauseGeneration() { 
+            if(isPaused) { 
+                isPaused = false;
+                pauseRequested = false;
+                document.getElementById('pauseBtn').innerText = "⏸️ 暂停";
+                startGeneration(); 
+            } else {
+                pauseRequested = true; 
+            }
+        }
+
+        // ========== 激活码兼容逻辑 ==========
+        function generateActivationCode(businessType, expireDate) {
+            const dateStr = expireDate.replace(/-/g, '');
+            const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+            const check = CryptoJS.MD5(businessType.toUpperCase() + dateStr + CONFIG.SECRET_KEY).toString().substring(0, 4).toUpperCase();
+            return `XHS-${businessType.toUpperCase()}-${dateStr}-${random}-${check}`;
+        }
+
+        function validateActivationCode(code) {
+            try {
+                const parts = code.trim().toUpperCase().split('-');
+                if (parts.length !== 5 || parts[0] !== 'XHS') return { valid: false, msg: "格式错误" };
+                const [_, business, dateStr, random, check] = parts;
+                const expectedCheckNew = CryptoJS.MD5(business + dateStr + CONFIG.SECRET_KEY).toString().substring(0, 4).toUpperCase();
+                let expectedCheckOld = "";
+                if (business === 'ALL') expectedCheckOld = CryptoJS.MD5('all' + dateStr + CONFIG.SECRET_KEY).toString().substring(0, 4).toUpperCase();
+                if (check !== expectedCheckNew && check !== expectedCheckOld) return { valid: false, msg: "校验失败" };
+                const year = parseInt(dateStr.substring(0, 4));
+                const month = parseInt(dateStr.substring(4, 6)) - 1;
+                const day = parseInt(dateStr.substring(6, 8));
+                if (new Date() > new Date(year, month, day + 1)) return { valid: false, msg: "激活码已过期" };
+                return { valid: true, business: business, expireDate: `${year}-${month+1}-${day}`, msg: "激活成功" };
+            } catch (e) { return { valid: false, msg: "无效激活码" }; }
+        }
+
+        // 初始化
+        function showAdminModal() { document.getElementById('adminModal').classList.add('show'); }
+        function closeAdminModal() { document.getElementById('adminModal').classList.remove('show'); }
+        function showStatus(id, msg, type) { const el = document.getElementById(id); el.textContent = msg; el.className = `status ${type}`; el.classList.remove('hidden'); }
+        function adminLogin() { if(document.getElementById('adminPassword').value === CONFIG.ADMIN_PASSWORD) { document.getElementById('adminLogin').classList.add('hidden'); document.getElementById('adminPanel').classList.remove('hidden'); } else alert('密码错误'); }
+        function generateCode() { const date = document.getElementById('expireDate').value; if(!date) return alert('选日期'); const code = generateActivationCode('all', date); document.getElementById('generatedCode').textContent = code; document.getElementById('codeDisplay').classList.remove('hidden'); }
+        
+        window.onload = function() {
+            const act = JSON.parse(localStorage.getItem('activation'));
+            const key = localStorage.getItem('user_api_key');
+            if (act) {
+                document.getElementById('activationSection').classList.add('hidden');
+                document.getElementById('activatedInfo').classList.remove('hidden');
+                document.getElementById('apiConfigSection').classList.remove('hidden');
+                document.getElementById('businessInfo').textContent = act.business;
+                document.getElementById('expireInfo').textContent = act.expireDate;
+                if (key) { 
+                    document.getElementById('userApiKey').value = key; 
+                    document.getElementById('assignSection').classList.remove('hidden');
+                    document.getElementById('generateSection').classList.remove('hidden'); 
+                }
+            }
+        };
+    </script>
+</body>
+</html>
