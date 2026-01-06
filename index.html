@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小红书文案生成器 - v5.6 Pro 兼容版</title>
+    <title>小红书文案生成器 - v5.7 完美兼容版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
-        /* UI 保持高端版 (无变动) */
+        /* UI 保持高端版 */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
         .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }
@@ -51,7 +51,7 @@
         <div class="header">
             <button class="admin-btn" onclick="window.location.reload()" style="left: 20px; right: auto;">🔄 刷新</button>
             <h1>🎨 小红书文案生成器</h1>
-            <p>v5.6 Pro - 兼容旧码 | 0英文 | 完美排版</p>
+            <p>v5.7 完美兼容版 - 支持旧码 | 0英文 | 智能清洗</p>
             <button class="admin-btn" onclick="showAdminModal()">⚙️ 管理</button>
         </div>
         
@@ -76,7 +76,7 @@
             <div class="section hidden" id="apiConfigSection">
                 <div class="section-title">🔌 API 配置 (Claude 3.5)</div>
                 <div class="info-box">
-                    <p>⚠️ 需用户自备 Key。本版本支持长短文案切换。</p>
+                    <p>⚠️ 需用户自备 Key。本版本兼容所有旧激活码，请放心使用。</p>
                 </div>
                 <div class="form-group">
                     <label>API Key (以 sk- 开头)</label>
@@ -103,7 +103,7 @@
                     <label style="color: #0066cc;">🎯 选择生成模式</label>
                     <select id="contentLength">
                         <option value="standard">🔵 黄金标准版 (500-600字 | 完读率高)</option>
-                        <option value="long">🟣 深度长文版 (800-950字 | 收藏率高)</option>
+                        <option value="long">🟣 深度长文版 (850-950字 | 收藏率高)</option>
                     </select>
                 </div>
 
@@ -316,11 +316,11 @@
             return tags.slice(0, 10).join(' ');
         }
 
-        // ========== ⚠️ 激活码逻辑 (新旧兼容) ==========
+        // ========== ⚠️ 激活码逻辑 (核心兼容修复) ==========
         function generateActivationCode(businessType, expireDate) {
             const dateStr = expireDate.replace(/-/g, '');
             const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-            // 新码：强制使用大写 businessType
+            // 强制大写生成，确保新码规范
             const check = CryptoJS.MD5(businessType.toUpperCase() + dateStr + CONFIG.SECRET_KEY).toString().substring(0, 4).toUpperCase();
             return `XHS-${businessType.toUpperCase()}-${dateStr}-${random}-${check}`;
         }
@@ -331,16 +331,16 @@
                 if (parts.length !== 5 || parts[0] !== 'XHS') return { valid: false, msg: "格式错误" };
                 const [_, business, dateStr, random, check] = parts;
                 
-                // 1. 尝试新逻辑 (全大写)
+                // 1. 标准校验 (大写)
                 const expectedCheckNew = CryptoJS.MD5(business + dateStr + CONFIG.SECRET_KEY).toString().substring(0, 4).toUpperCase();
                 
-                // 2. 尝试旧逻辑 (business 为 'all' 小写) - 仅当 business 为 ALL 时尝试
+                // 2. 兼容校验 (针对旧码 'all' 小写的情况)
                 let expectedCheckOld = "";
                 if (business === 'ALL') {
                     expectedCheckOld = CryptoJS.MD5('all' + dateStr + CONFIG.SECRET_KEY).toString().substring(0, 4).toUpperCase();
                 }
 
-                // 只要匹配其中一个就算通过
+                // 只要有一个通过就算过
                 if (check !== expectedCheckNew && check !== expectedCheckOld) {
                     return { valid: false, msg: "校验失败" };
                 }
@@ -489,7 +489,7 @@
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(results), "结果");
-            XLSX.writeFile(wb, `v5.6Pro文案_${Date.now()}.xlsx`);
+            XLSX.writeFile(wb, `v5.7兼容文案_${Date.now()}.xlsx`);
             
             document.getElementById('generateBtn').disabled = false;
             document.getElementById('pauseBtn').style.display = 'none';
