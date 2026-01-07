@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小红书文案生成器 - v6.2 社会化专用版</title>
+    <title>小红书文案生成器 - v6.3 社会化专用版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
@@ -51,7 +51,7 @@
         <div class="header">
             <button class="admin-btn" onclick="window.location.reload()" style="left: 20px; right: auto;">🔄 刷新</button>
             <h1>🎨 小红书文案生成器</h1>
-            <p>v6.2 社会化专用版 - 找回分配功能 | 强制成人</p>
+            <p>v6.3 社会化专用版 - 找回状态显示 | 暂停自动导出</p>
             <button class="admin-btn" onclick="showAdminModal()">⚙️ 管理</button>
         </div>
         
@@ -338,11 +338,17 @@ ${ADULT_CONSTRAINT}
             const total = excelData.length;
 
             for (let i = 0; i < total; i++) {
+                // 暂停检查点
                 if (pauseRequested) {
                     isPaused = true;
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(results), "暂停保存");
                     XLSX.writeFile(wb, `暂停备份_${Date.now()}.xlsx`);
+                    
+                    // 🔴 增加：暂停后的日志提示
+                    log.innerHTML += `<div class="log-item" style="background:#fff3cd; color:#856404; font-weight:bold;">⏸️ 任务暂停，已自动导出当前进度 Excel</div>`;
+                    log.scrollTop = log.scrollHeight;
+                    
                     document.getElementById('pauseBtn').innerText = "▶️ 继续";
                     return; 
                 }
@@ -350,7 +356,8 @@ ${ADULT_CONSTRAINT}
                 const row = excelData[i];
                 if (!row['标题']) continue;
 
-                log.innerHTML += `<div class="log-item">[${i+1}/${total}] 正在生成: ${row['标题']}...</div>`;
+                // 🔴 修改：日志格式，显示[1/61] AI 正在创作...
+                log.innerHTML += `<div class="log-item">[${i+1}/${total}] AI 正在创作: ${row['标题']}...</div>`;
                 log.scrollTop = log.scrollHeight;
 
                 try {
@@ -359,10 +366,14 @@ ${ADULT_CONSTRAINT}
                         '序号': i+1, '原标题': row['标题'],
                         '生成标题': res.title, '生成文案': res.body, '话题': res.tags, '字数': res.body.length
                     });
+                    
+                    // 🔴 新增：成功提示 ✅ 成功 (XXX字)
+                    log.innerHTML += `<div class="log-item" style="color: green; font-weight: bold; margin-bottom: 10px;">✅ 成功 (${res.body.length}字)</div>`;
+                    
                     document.getElementById('progressFill').style.width = ((i+1)/total*100) + '%';
                 } catch (e) {
                     console.error(e);
-                    log.innerHTML += `<div class="log-item" style="color:red">❌ 失败: ${e.message}</div>`;
+                    log.innerHTML += `<div class="log-item" style="color:red; font-weight:bold;">❌ 失败: ${e.message}</div>`;
                 }
                 
                 await new Promise(r => setTimeout(r, 1000));
@@ -374,7 +385,7 @@ ${ADULT_CONSTRAINT}
             
             document.getElementById('generateBtn').disabled = false;
             document.getElementById('pauseBtn').style.display = 'none';
-            log.innerHTML += `<div class="log-item">🎉 全部完成</div>`;
+            log.innerHTML += `<div class="log-item" style="background:#d4edda; color:#155724; padding:10px;">🎉 全部完成！已导出 Excel</div>`;
         }
 
         function pauseGeneration() { 
