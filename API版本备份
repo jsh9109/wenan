@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小红书文案生成器 - v6.3 社会化专用版</title>
+    <title>小红书文案生成器 - v6.4 历史记录版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
@@ -18,7 +18,7 @@
         .admin-btn:hover { background: rgba(255,255,255,0.3); }
         .content { padding: 30px; }
         .section { background: #f8f9fa; border-radius: 12px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #667eea; }
-        .section-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; display: flex; align-items: center; }
+        .section-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; display: flex; align-items: center; justify-content: space-between; }
         .info-box { background: white; border-left: 4px solid #ff9800; padding: 15px; margin-bottom: 15px; border-radius: 4px; font-size: 13px; color: #666; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 8px; color: #555; font-weight: 500; font-size: 14px; }
@@ -28,6 +28,7 @@
         .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
         .btn-secondary { background: #6c757d; color: white; }
         .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ff9800; color: white; } /* 新增黄色按钮样式 */
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .status { padding: 15px; border-radius: 8px; margin-top: 15px; font-size: 14px; }
         .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
@@ -44,6 +45,22 @@
         .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; }
         .log { margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.8; }
         .log-item { margin-bottom: 5px; padding: 5px; border-left: 3px solid #667eea; padding-left: 10px; }
+        
+        /* 历史记录区域样式 */
+        .history-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff3e0;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #ffe0b2;
+        }
+        .history-info {
+            font-size: 13px;
+            color: #e65100;
+        }
     </style>
 </head>
 <body>
@@ -51,7 +68,7 @@
         <div class="header">
             <button class="admin-btn" onclick="window.location.reload()" style="left: 20px; right: auto;">🔄 刷新</button>
             <h1>🎨 小红书文案生成器</h1>
-            <p>v6.3 社会化专用版 - 找回状态显示 | 暂停自动导出</p>
+            <p>v6.4 社会化专用版 - 自动备份 | 历史找回</p>
             <button class="admin-btn" onclick="showAdminModal()">⚙️ 管理</button>
         </div>
         
@@ -98,7 +115,18 @@
             </div>
             
             <div class="section hidden" id="generateSection">
-                <div class="section-title">📝 步骤2：AI 批量生成</div>
+                <div class="section-title">
+                    <span>📝 步骤2：AI 批量生成</span>
+                </div>
+
+                <div class="history-bar" id="historyBar">
+                    <div class="history-info">
+                        💡 上次记录：<span id="lastSavedTime">无</span>
+                    </div>
+                    <button class="btn btn-warning" onclick="recoverLastSession()" style="margin:0; font-size:12px; padding: 8px 15px;">
+                        📂 恢复/下载上次记录
+                    </button>
+                </div>
                 
                 <div class="form-group" style="background: #e7f3ff; padding: 15px; border-radius: 8px; border: 1px solid #b3d9ff;">
                     <label style="color: #0066cc;">🎯 篇幅选择</label>
@@ -117,8 +145,11 @@
                     <div class="status hidden" id="fileInfo"></div>
                 </div>
                 
-                <button class="btn btn-primary" id="generateBtn" onclick="startGeneration()" disabled>🚀 开始生成 (消耗Key)</button>
-                <button class="btn" style="background: #ff9800; color: white; display: none;" onclick="pauseGeneration()" id="pauseBtn">⏸️ 暂停</button>
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="generateBtn" onclick="startGeneration()" disabled>🚀 开始生成</button>
+                    <button class="btn" style="background: #ff9800; color: white; display: none;" onclick="pauseGeneration()" id="pauseBtn">⏸️ 暂停 (自动保存)</button>
+                    <button class="btn btn-success hidden" id="manualDownloadBtn" onclick="manualDownloadCurrent()">📥 手动导出当前进度</button>
+                </div>
                 
                 <div class="progress-container hidden" id="progressContainer">
                     <div class="progress-bar"><div class="progress-fill" id="progressFill">0%</div></div>
@@ -165,21 +196,18 @@
             API_BASE_URL: "https://api.gptsapi.net/v1/chat/completions",
             MODEL: "claude-3-5-sonnet-20240620", 
             
-            // 敏感词
             SENSITIVE_WORDS: {
                 '微信': '平时聊天', '加微信': '加好友', '钱': '米', '赚钱': '搞米',
                 '私信': '后台', '技巧': '方法', '帮助': '协助', '沦为': '变成',
                 '职场': '值场', '公司': '公同', '单位': '單位', '同事': '同士', '引流': '导流', '营销': '营消'
             },
             
-            // 真实热搜词库
             KEYWORDS: {
                 'work': ['职场', '职场生存法则', '职场干货', '职场思维', '职场人际关系'],
                 'social': ['社会化', '人情世故', '高情商', '为人处事', '社交技巧'],
                 'growth': ['个人成长', '成长', '自我提升', '思维提升', '认知觉醒']
             },
 
-            // 完美结尾钩子
             ENDING: `\n\n💡 这份《普通人社会化指南》能帮你什么？\n\n1️⃣ 全套干货：20万字 + 67节系统课，不讲空话，只教方法。\n2️⃣ 全景覆盖：从饭局应酬到值场晋升，从拒绝内耗到向上社交。\n3️⃣ 实战工具：附赠超全思维导图（电子版），拿来就能用。\n\n👥 这套指南适合谁？\n\n✅ 社恐/内向者：害怕社交，想摆脱紧张尴尬\n✅ 值场老实人：不懂拒绝，总被拿捏，想建立边界\n✅ 沟通小白：说话直来直去，常得罪人，想提高情商\n\n❗️❗️ 需要的宝子，直接去我主页店铺带走 🛒🛒🛒`
         };
 
@@ -198,7 +226,7 @@
         // ========== 辅助函数 ==========
         function randomPickMultiple(array, count) { return array.sort(() => 0.5 - Math.random()).slice(0, count); }
 
-        // ========== 步骤1：分配逻辑 (找回的功能) ==========
+        // ========== 步骤1：分配逻辑 ==========
         function downloadBlankTemplate() {
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['标题']]), "空白模板");
@@ -213,11 +241,10 @@
                 const wb = XLSX.read(e.target.result, { type: 'array' });
                 const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
                 
-                // 自动分配逻辑
                 const results = data.map((r, i) => ({
                     '序号': i+1, 
                     '标题': r['标题'], 
-                    '选题': '智能识别', // 这里其实API不太需要选题列，但为了格式统一保留
+                    '选题': '智能识别', 
                     '生成数量': 1 
                 }));
                 
@@ -229,11 +256,10 @@
             reader.readAsArrayBuffer(f);
         }
 
-        // ========== 核心生成逻辑 (强制成人版) ==========
+        // ========== 核心生成逻辑 ==========
         async function generateSocial(row) {
             const mode = document.getElementById('contentLength').value;
             
-            // ⚠️ 强制成人的 Prompt
             const ADULT_CONSTRAINT = `
 【重要设定】
 1. **目标读者**：20-30岁的职场新人、大学生、或有社交困扰的成年人。
@@ -269,12 +295,10 @@ ${ADULT_CONSTRAINT}
             const data = await response.json();
             const content = data.choices[0].message.content;
             
-            // 后处理
-            let body = content.replace(/\*\*/g, "").replace(/\b[A-Za-z]{2,}\b/g, ""); // 删英文
+            let body = content.replace(/\*\*/g, "").replace(/\b[A-Za-z]{2,}\b/g, ""); 
             body = body.replace(/\[1\]/g, "[一R]").replace(/\[2\]/g, "[二R]").replace(/\[3\]/g, "[三R]");
-            body = body.replace(/([^\n])\[([一二三]R)\]/g, "$1\n\n[$2]"); // 强制换行
+            body = body.replace(/([^\n])\[([一二三]R)\]/g, "$1\n\n[$2]");
             
-            // 清除标题泄露
             const lines = body.split('\n');
             if (lines.length > 0) {
                 const firstLine = lines[0].trim();
@@ -285,14 +309,11 @@ ${ADULT_CONSTRAINT}
                 }
             }
 
-            // 拼接结尾
             let full = body + CONFIG.ENDING;
-            // 全域清洗
             for (const [key, val] of Object.entries(CONFIG.SENSITIVE_WORDS)) {
                 full = full.replace(new RegExp(key, 'g'), val);
             }
             
-            // 话题
             let tags = ['#普通人社会化指南', '#人情世故'];
             tags.push(...randomPickMultiple(CONFIG.KEYWORDS.work, 3).map(t=>'#'+t));
             tags.push(...randomPickMultiple(CONFIG.KEYWORDS.social, 3).map(t=>'#'+t));
@@ -301,10 +322,51 @@ ${ADULT_CONSTRAINT}
             return { title: row['标题'], body: full, tags: tags.slice(0,10).join(' ') };
         }
 
-        // ========== 流程控制 ==========
+        // ========== 流程控制 & 历史记录 ==========
         let excelData = null;
         let isPaused = false;
         let pauseRequested = false;
+        let currentResults = []; // 全局变量，方便随时下载
+
+        // 🔴 新增：保存历史记录到 LocalStorage
+        function saveToHistory(results) {
+            try {
+                const now = new Date().toLocaleString();
+                localStorage.setItem('xhs_last_results', JSON.stringify(results));
+                localStorage.setItem('xhs_last_time', now);
+                document.getElementById('lastSavedTime').textContent = now;
+            } catch (e) {
+                console.warn("存储空间不足，无法自动备份", e);
+            }
+        }
+
+        // 🔴 新增：从 LocalStorage 恢复并下载
+        function recoverLastSession() {
+            const stored = localStorage.getItem('xhs_last_results');
+            if (!stored) {
+                alert("没有找到历史记录！");
+                return;
+            }
+            const results = JSON.parse(stored);
+            if (results.length === 0) {
+                alert("历史记录为空");
+                return;
+            }
+            
+            // 立即导出
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(results), "恢复的历史记录");
+            XLSX.writeFile(wb, `历史记录恢复_${Date.now()}.xlsx`);
+            alert(`已成功恢复并下载 ${results.length} 条记录`);
+        }
+        
+        // 🔴 新增：手动下载当前内存中的进度
+        function manualDownloadCurrent() {
+            if (currentResults.length === 0) { alert("当前没有可导出的内容"); return; }
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(currentResults), "手动导出");
+            XLSX.writeFile(wb, `手动导出进度_${Date.now()}.xlsx`);
+        }
 
         function handleFileSelect() {
             const f = document.getElementById('excelFile').files[0];
@@ -314,7 +376,7 @@ ${ADULT_CONSTRAINT}
                 const wb = XLSX.read(e.target.result, { type: 'array' });
                 excelData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
                 if (!excelData[0]['标题']) {
-                    showStatus('fileInfo', '❌ 错误：请上传【步骤1】生成的分配结果（需包含标题列）', 'error');
+                    showStatus('fileInfo', '❌ 错误：请上传含【标题】列的Excel', 'error');
                 } else {
                     showStatus('fileInfo', `✅ 已加载 ${excelData.length} 条任务`, 'success');
                     document.getElementById('generateBtn').disabled = false;
@@ -331,24 +393,20 @@ ${ADULT_CONSTRAINT}
             pauseRequested = false;
             document.getElementById('generateBtn').disabled = true;
             document.getElementById('pauseBtn').style.display = 'inline-block';
+            document.getElementById('manualDownloadBtn').classList.remove('hidden'); // 显示手动下载按钮
             document.getElementById('progressContainer').classList.remove('hidden');
             const log = document.getElementById('log'); log.innerHTML = '';
             
-            const results = [];
+            currentResults = []; // 重置当前结果
             const total = excelData.length;
 
             for (let i = 0; i < total; i++) {
-                // 暂停检查点
                 if (pauseRequested) {
                     isPaused = true;
-                    const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(results), "暂停保存");
-                    XLSX.writeFile(wb, `暂停备份_${Date.now()}.xlsx`);
-                    
-                    // 🔴 增加：暂停后的日志提示
-                    log.innerHTML += `<div class="log-item" style="background:#fff3cd; color:#856404; font-weight:bold;">⏸️ 任务暂停，已自动导出当前进度 Excel</div>`;
+                    // 暂停时强制下载
+                    manualDownloadCurrent();
+                    log.innerHTML += `<div class="log-item" style="background:#fff3cd; color:#856404; font-weight:bold;">⏸️ 任务暂停，已强制下载当前进度</div>`;
                     log.scrollTop = log.scrollHeight;
-                    
                     document.getElementById('pauseBtn').innerText = "▶️ 继续";
                     return; 
                 }
@@ -356,20 +414,21 @@ ${ADULT_CONSTRAINT}
                 const row = excelData[i];
                 if (!row['标题']) continue;
 
-                // 🔴 修改：日志格式，显示[1/61] AI 正在创作...
                 log.innerHTML += `<div class="log-item">[${i+1}/${total}] AI 正在创作: ${row['标题']}...</div>`;
                 log.scrollTop = log.scrollHeight;
 
                 try {
                     let res = await generateSocial(row);
-                    results.push({
+                    const newRow = {
                         '序号': i+1, '原标题': row['标题'],
                         '生成标题': res.title, '生成文案': res.body, '话题': res.tags, '字数': res.body.length
-                    });
+                    };
+                    currentResults.push(newRow);
                     
-                    // 🔴 新增：成功提示 ✅ 成功 (XXX字)
-                    log.innerHTML += `<div class="log-item" style="color: green; font-weight: bold; margin-bottom: 10px;">✅ 成功 (${res.body.length}字)</div>`;
-                    
+                    // 🔴 关键动作：每生成一条，立刻备份到 LocalStorage
+                    saveToHistory(currentResults);
+
+                    log.innerHTML += `<div class="log-item" style="color: green; font-weight: bold; margin-bottom: 10px;">✅ 成功 (${res.body.length}字) - 已自动备份</div>`;
                     document.getElementById('progressFill').style.width = ((i+1)/total*100) + '%';
                 } catch (e) {
                     console.error(e);
@@ -379,34 +438,33 @@ ${ADULT_CONSTRAINT}
                 await new Promise(r => setTimeout(r, 1000));
             }
 
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(results), "结果");
-            XLSX.writeFile(wb, `社会化指南文案_${Date.now()}.xlsx`);
+            // 完成时自动下载
+            manualDownloadCurrent();
             
             document.getElementById('generateBtn').disabled = false;
             document.getElementById('pauseBtn').style.display = 'none';
-            log.innerHTML += `<div class="log-item" style="background:#d4edda; color:#155724; padding:10px;">🎉 全部完成！已导出 Excel</div>`;
+            document.getElementById('manualDownloadBtn').classList.add('hidden');
+            log.innerHTML += `<div class="log-item" style="background:#d4edda; color:#155724; padding:10px;">🎉 全部完成！文件已自动下载</div>`;
         }
 
         function pauseGeneration() { 
             if(isPaused) { 
                 isPaused = false;
                 pauseRequested = false;
-                document.getElementById('pauseBtn').innerText = "⏸️ 暂停";
+                document.getElementById('pauseBtn').innerText = "⏸️ 暂停 (自动保存)";
                 startGeneration(); 
             } else {
                 pauseRequested = true; 
             }
         }
 
-        // ========== 激活码兼容逻辑 ==========
+        // ========== 激活码逻辑 (不变) ==========
         function generateActivationCode(businessType, expireDate) {
             const dateStr = expireDate.replace(/-/g, '');
             const random = Math.random().toString(36).substring(2, 6).toUpperCase();
             const check = CryptoJS.MD5(businessType.toUpperCase() + dateStr + CONFIG.SECRET_KEY).toString().substring(0, 4).toUpperCase();
             return `XHS-${businessType.toUpperCase()}-${dateStr}-${random}-${check}`;
         }
-
         function validateActivationCode(code) {
             try {
                 const parts = code.trim().toUpperCase().split('-');
@@ -432,6 +490,10 @@ ${ADULT_CONSTRAINT}
         function generateCode() { const date = document.getElementById('expireDate').value; if(!date) return alert('选日期'); const code = generateActivationCode('all', date); document.getElementById('generatedCode').textContent = code; document.getElementById('codeDisplay').classList.remove('hidden'); }
         
         window.onload = function() {
+            // 加载上次时间
+            const lastTime = localStorage.getItem('xhs_last_time');
+            if (lastTime) { document.getElementById('lastSavedTime').textContent = lastTime; }
+
             const act = JSON.parse(localStorage.getItem('activation'));
             const key = localStorage.getItem('user_api_key');
             if (act) {
